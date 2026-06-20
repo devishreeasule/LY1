@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Up and Down · LY1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito', 'Trebuchet MS', Arial, sans-serif;
+      background: linear-gradient(135deg, #fce4ec 0%, #e8f5e9 50%, #e3f2fd 100%);
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── INTRO ── */
+    #intro-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, #4a148c, #7b1fa2, #ab47bc);
+      display: flex; align-items: center; justify-content: center;
+      border: 5px solid #FFD700; z-index: 200;
+    }
+    #intro-logo { width: 220px; height: auto; filter: drop-shadow(0 6px 20px rgba(0,0,0,0.5)); animation: logoBounce 2s ease-in-out infinite; }
+    @keyframes logoBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+    /* ── GAME ── */
+    #game-screen {
+      display: none; flex-direction: column;
+      width: 100%; max-width: 860px; height: 100%; padding: 14px 14px 70px;
+      overflow-y: auto;
+    }
+
+    /* Header */
+    .hdr { display:flex; align-items:center; justify-content:space-between; background:white; border-radius:18px; padding:10px 18px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+    .hdr-score { font-size:1.2em; font-weight:bold; color:#4CAF50; min-width:70px; }
+    .hdr-title { font-size:clamp(0.75em,2.5vw,1em); color:#6a0dad; font-weight:bold; text-align:center; }
+    .mute-btn { width:38px; height:38px; border:2px solid #ddd; border-radius:50%; background:white; font-size:1.1em; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color 0.2s; }
+    .mute-btn:hover { border-color:#aaa; }
+
+    /* Progress */
+    .progress-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .progress-label { font-size:0.9em; color:#777; white-space:nowrap; }
+    .progress-bar-wrap { flex:1; height:10px; background:#e0e0e0; border-radius:5px; overflow:hidden; }
+    .progress-bar-fill { height:100%; border-radius:5px; background:linear-gradient(90deg,#4CAF50,#8BC34A); transition:width 0.5s ease; }
+
+    /* Question text */
+    .question-txt { text-align:center; font-size:clamp(1em,3.5vw,1.25em); color:#333; font-weight:bold; margin-bottom:14px; min-height:1.6em; padding:0 10px; line-height:1.4; }
+
+    /* Draw instruction */
+    .draw-tip { text-align:center; font-size:clamp(0.82em,2.5vw,0.95em); color:#888; margin-bottom:8px; }
+
+    /* Scene card */
+    .scene-card { background:white; border-radius:24px; padding:20px; box-shadow:0 6px 24px rgba(0,0,0,0.1); position:relative; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+
+    /* Scene image + canvas wrapper */
+    .scene-wrap {
+      position: relative;
+      width: 100%; max-width: 600px;
+      border-radius: 16px;
+      overflow: hidden;
+      /* prevent page scroll while drawing on touch */
+      touch-action: none;
+    }
+    .scene-img { width:100%; height:auto; display:block; pointer-events:none; -webkit-user-drag:none; border-radius:16px; }
+
+    /* Drawing canvas sits on top of image */
+    #draw-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      cursor: crosshair;
+      touch-action: none;
+      border-radius: 16px;
+    }
+
+    /* Hint guide circle (shows WHERE to draw) */
+    #hint-guide {
+      position: absolute;
+      border-radius: 50%;
+      border: 4px dashed #FFD700;
+      pointer-events: none;
+      display: none;
+      animation: hintDash 1s linear infinite, hintGlowAnim 0.8s ease-in-out infinite;
+      z-index: 10;
+      transform: translate(-50%, -50%);
+    }
+    #hint-guide.show { display: block; }
+    @keyframes hintDash { to { stroke-dashoffset: -20; } }
+    @keyframes hintGlowAnim {
+      0%,100% { box-shadow: 0 0 10px 3px rgba(255,215,0,0.5); border-color:#FFD700; }
+      50%      { box-shadow: 0 0 24px 8px rgba(255,215,0,0.9); border-color:#FFC200; }
+    }
+
+    /* Hint label */
+    #hint-label {
+      display: none;
+      position: absolute;
+      background: #FFD700; color: #333;
+      font-size: 0.82em; font-weight: bold;
+      padding: 5px 13px; border-radius: 20px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      white-space: nowrap; z-index: 20;
+      pointer-events: none;
+      animation: arrowBounce 0.65s ease-in-out infinite;
+      transform: translateX(-50%);
+    }
+    #hint-label.show { display: block; }
+    @keyframes arrowBounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+    /* Bottom — fixed to viewport bottom so always visible */
+    .bottom-row { display:flex; justify-content:center; position:fixed; bottom:16px; left:0; right:0; z-index:50; pointer-events:none; }
+    .btn-restart { pointer-events:all; }
+    .btn-restart { background:linear-gradient(135deg,#FF9800,#F57C00); color:white; border:none; padding:12px 32px; border-radius:40px; font-size:1em; font-family:inherit; font-weight:bold; cursor:pointer; box-shadow:0 5px 14px rgba(255,152,0,0.4); transition:transform 0.1s; }
+    .btn-restart:hover { transform:translateY(-2px); }
+
+    /* Toast */
+    #toast { position:fixed; top:18%; left:50%; transform:translateX(-50%) scale(0.7); padding:14px 30px; border-radius:50px; font-size:1.5em; font-weight:bold; color:white; pointer-events:none; opacity:0; transition:opacity 0.2s,transform 0.2s; z-index:500; white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,0.2); }
+    #toast.show { opacity:1; transform:translateX(-50%) scale(1); }
+
+    /* Confetti */
+    .confetti { position:fixed; pointer-events:none; z-index:9998; border-radius:2px; }
+
+    /* ── END ── */
+    #end-screen { display:none; position:fixed; inset:0; background:linear-gradient(160deg,#4a148c,#7b1fa2,#ab47bc); flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:200; text-align:center; padding:30px; }
+    .end-trophy { font-size:4.5em; animation:trophySpin 1.5s ease-out; }
+    @keyframes trophySpin { from{transform:rotate(-20deg) scale(0)} 60%{transform:rotate(10deg) scale(1.1)} to{transform:rotate(0) scale(1)} }
+    .end-title  { color:#FFD700; font-size:clamp(1.5em,5vw,2.2em); font-weight:bold; text-shadow:0 3px 10px rgba(0,0,0,0.3); }
+    .end-sub    { color:rgba(255,255,255,0.9); font-size:1.1em; }
+    .end-score-box { background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.35); border-radius:20px; padding:16px 40px; color:white; font-size:1.8em; font-weight:bold; }
+    .end-stars  { font-size:2.2em; letter-spacing:4px; }
+    .btn-play-again { background:#FFD700; color:#333; border:none; padding:15px 45px; border-radius:40px; font-size:1.2em; font-family:inherit; font-weight:bold; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.2); transition:transform 0.1s; margin-top:8px; }
+    .btn-play-again:hover { transform:scale(1.05); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #game-screen { padding:10px; }
+      .scene-card { padding:14px; margin-top:auto; margin-bottom:auto; }
+      .hdr-title { display:none; }
+      .scene-wrap { max-width:100%; }
+    }
+    @media (max-width: 480px) {
+      .scene-card { padding:10px 8px; margin-top:auto; margin-bottom:auto; }
+      .question-txt { font-size:0.95em; margin-bottom:8px; }
+      .draw-tip { font-size:0.78em; }
+      .hdr-score { font-size:1em; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── INTRO ── -->
+<div id="intro-screen">
+  <img id="intro-logo" src="Assets/innovinelogo.png" alt="Innovine" onclick="startGame()" style="cursor:pointer" onerror="this.style.display='none'">
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<!-- ── GAME ── -->
+<div id="game-screen">
+
+  <div class="hdr">
+    <div class="hdr-score">⭐ <span id="score-val">0</span> / 8</div>
+    <div class="hdr-title">Up and Down</div>
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
+  </div>
+
+  <div class="progress-row">
+    <span class="progress-label">Q <span id="q-num">1</span> / 8</span>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="prog-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="question-txt" id="question-txt"></div>
+  <div class="draw-tip">✏️ Draw a circle around the correct answer!</div>
+
+  <div class="scene-card">
+    <div class="scene-wrap" id="scene-wrap">
+      <img id="scene-img" src="" alt="" draggable="false" class="scene-img">
+      <canvas id="draw-canvas"></canvas>
+      <!-- Hint guide ring (shown after 1st wrong) -->
+      <div id="hint-guide"></div>
+      <div id="hint-label">✏️ Circle here!</div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <button class="btn-restart" onclick="restartGame()">🔄 &nbsp;Restart</button>
+  </div>
+
+</div>
+
+<!-- ── END ── -->
+<div id="end-screen">
+  <div class="end-trophy">🏆</div>
+  <div class="end-title">You have done a great job!</div>
+  <div class="end-sub">You completed all 8 questions!</div>
+  <div class="end-score-box">Score: &nbsp;<span id="final-score">0</span> / 8</div>
+  <div class="end-stars" id="end-stars"></div>
+  <button class="btn-play-again" onclick="restartGame()">▶ &nbsp;Play Again</button>
+</div>
+
+<script>
+/* ─── QUESTIONS ───
+   correct: 'left' or 'right' (which horizontal half of the image is the answer)
+   hintCx/hintCy: where to show the guide circle hint (0–1 relative to image size)
+   Adjust these if the image layout differs after testing. */
+/* split:'topbottom' uses top/bottom halves; split:'leftright' uses left/right halves
+   hintCx/hintCy = 0–1 fraction of image width/height for the hint circle center */
+const QUESTIONS = [
+  { img:'Assets/Game%202/aeroplane%20and%20car.png', text:'Circle the aeroplane flying up in the sky',   split:'topbottom', correct:'top',   hintCx:0.52, hintCy:0.28 },
+  { img:'Assets/Game%202/birds.png',                 text:'Circle the bird on the ground',               split:'leftright', correct:'right', hintCx:0.63, hintCy:0.78 },
+  { img:'Assets/Game%202/catdog.png',                text:'Circle the cat on the roof',                  split:'leftright', correct:'right', hintCx:0.72, hintCy:0.22 },
+  { img:'Assets/Game%202/elevator.png',              text:'Circle the girl coming down the elevator',    split:'leftright', correct:'right', hintCx:0.62, hintCy:0.55 },
+  { img:'Assets/Game%202/lift.png',                  text:'Circle the lift going up',                    split:'leftright', correct:'left',  hintCx:0.28, hintCy:0.52 },
+  { img:'Assets/Game%202/seasaw.png',                text:'Circle the child who is down on the seesaw',  split:'leftright', correct:'right', hintCx:0.72, hintCy:0.68 },
+  { img:'Assets/Game%202/slide.png',                 text:'Circle the boy who is climbing the slide',    split:'leftright', correct:'right', hintCx:0.82, hintCy:0.38 },
+  { img:'Assets/Game%202/weightingscale.png',        text:'Circle the downside of the weighing scale',  split:'leftright', correct:'left',  hintCx:0.22, hintCy:0.65 },
+];
+
+/* Preload all images */
+QUESTIONS.forEach(q => { new Image().src = q.img; });
+
+/* ─── STATE ─── */
+let curQ     = 0;
+let score    = 0;
+let attempts = 0;
+let answered = false;
+let muted    = false;
+
+/* drawing state */
+let isDrawing  = false;
+let pathPts    = [];
+
+/* ─── AUDIO ─── */
+const sndCorrect = new Audio('Assets/correct.mp3');
+const sndWrong   = new Audio('Assets/wrong.mp3');
+const sndClaps   = new Audio('Assets/free_claps.mp3');
+const allSounds  = [sndCorrect, sndWrong, sndClaps];
+
+/* Unlock audio on first user interaction (browser autoplay policy) */
+function unlockAudio() {
+  allSounds.forEach(s => { s.play().catch(() => {}); s.pause(); s.currentTime = 0; });
+  document.removeEventListener('pointerdown', unlockAudio);
+}
+document.addEventListener('pointerdown', unlockAudio);
+
+function play(s) { if (muted) return; s.currentTime = 0; s.play().catch(()=>{}); }
+
+function speak(text) {
+  sndClaps.pause(); sndClaps.currentTime = 0;
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  if (muted) return;
+  setTimeout(() => {
+    if (muted) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.7; u.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.startsWith('en') && !v.name.includes('Google'))
+                 || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    if (enVoice) u.voice = enVoice;
+    window.speechSynthesis.speak(u);
+  }, 150);
+}
+/* Preload voices early */
+window.speechSynthesis.getVoices();
+window.speechSynthesis.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+
+function playClaps() {
+  if (muted) return;
+  sndClaps.currentTime = 0;
+  sndClaps.play().catch(() => {});
+  setTimeout(() => { sndClaps.pause(); sndClaps.currentTime = 0; }, 3000);
+}
+
+/* ─── INTRO ─── */
+// Tap logo to start — user interaction unlocks speech synthesis
+
+/* ─── START ─── */
+function startGame() {
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display  = 'flex';
+  curQ = 0; score = 0;
+  setupCanvas();
+  loadQuestion();
+}
+
+/* ─── CANVAS SETUP (once) ─── */
+function setupCanvas() {
+  const canvas = document.getElementById('draw-canvas');
+  const img    = document.getElementById('scene-img');
+
+  function syncSize() {
+    canvas.width  = img.offsetWidth  || canvas.offsetWidth;
+    canvas.height = img.offsetHeight || canvas.offsetHeight;
+  }
+  img.addEventListener('load', syncSize);
+  window.addEventListener('resize', () => { syncSize(); clearCanvas(); hideHint(); });
+  syncSize();
+
+  /* Pointer events — works for mouse, touch, stylus */
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointermove', onMove);
+  canvas.addEventListener('pointerup',   onUp);
+  canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('pointerleave', onUp);
+}
+
+function getCanvasXY(e) {
+  const r = document.getElementById('draw-canvas').getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+function onDown(e) {
+  if (answered) return;
+  e.preventDefault();
+  isDrawing = true;
+  pathPts   = [];
+  const pos = getCanvasXY(e);
+  pathPts.push(pos);
+  const ctx = getCtx();
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+  canvas().setPointerCapture(e.pointerId);
+}
+
+function onMove(e) {
+  if (!isDrawing || answered) return;
+  e.preventDefault();
+  const pos = getCanvasXY(e);
+  pathPts.push(pos);
+  const ctx = getCtx();
+  ctx.lineTo(pos.x, pos.y);
+  ctx.strokeStyle = 'rgba(60,160,80,0.85)';
+  ctx.lineWidth   = 7;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+}
+
+function onUp(e) {
+  if (!isDrawing) return;
+  isDrawing = false;
+  clearCanvas(); // wipe the stroke immediately on finger-up
+  if (pathPts.length < 5) return; // ignore accidental micro-tap
+  evaluateDrawing();
+}
+
+/* ─── EVALUATE DRAWING ─── */
+function evaluateDrawing() {
+  if (pathPts.length < 8) return;
+
+  /* 1. Minimum stroke length — reject short scribbles */
+  let len = 0;
+  for (let i = 1; i < pathPts.length; i++)
+    len += Math.hypot(pathPts[i].x - pathPts[i-1].x, pathPts[i].y - pathPts[i-1].y);
+  if (len < 80) return;
+
+  /* 2. Centroid of drawn path */
+  const cx = pathPts.reduce((s, p) => s + p.x, 0) / pathPts.length;
+  const cy = pathPts.reduce((s, p) => s + p.y, 0) / pathPts.length;
+
+  /* 3. Angular coverage check — must cover at least 240° around centroid.
+     A straight line covers ~180°; a real circle covers ~360°.
+     We reject anything with a gap > 120° (meaning coverage < 240°). */
+  const angles = pathPts.map(p => Math.atan2(p.y - cy, p.x - cx));
+  const sorted = [...angles].sort((a, b) => a - b);
+  let maxGap = 0;
+  for (let i = 1; i < sorted.length; i++)
+    maxGap = Math.max(maxGap, sorted[i] - sorted[i - 1]);
+  // wrap-around gap (from last angle back to first + 2π)
+  maxGap = Math.max(maxGap, sorted[0] + Math.PI * 2 - sorted[sorted.length - 1]);
+
+  const MIN_COVERAGE_DEG = 240;
+  const maxAllowedGap = (360 - MIN_COVERAGE_DEG) * Math.PI / 180; // 120° in radians
+  if (maxGap > maxAllowedGap) return; // not a circle — ignore, let child try again
+
+  /* 4. Determine zone using canvas bounding rect (always matches pointer coords) */
+  const rect = canvas().getBoundingClientRect();
+  const cw = rect.width;
+  const ch = rect.height;
+
+  const q = QUESTIONS[curQ];
+  let zone;
+  if (q.split === 'topbottom') {
+    zone = cy < ch / 2 ? 'top' : 'bottom';
+  } else {
+    zone = cx < cw / 2 ? 'left' : 'right';
+  }
+
+
+  if (zone === q.correct) registerCorrect();
+  else registerWrong(zone);
+}
+
+/* ─── CORRECT ─── */
+function registerCorrect() {
+  answered = true;
+  hideHint();
+
+  /* Redraw the path in solid green */
+  flashPath('#4CAF50', 1.0, 8);
+
+  score++;
+  document.getElementById('score-val').textContent = score;
+  window.speechSynthesis?.cancel();
+  playClaps();
+  showToast('⭐ Correct!', '#4CAF50');
+  spawnConfetti();
+
+  setTimeout(() => { curQ++; loadQuestion(); }, 3200);
+}
+
+/* ─── WRONG ─── */
+function registerWrong(zone) {
+  if (answered) return;
+  attempts++;
+
+  if (attempts === 1) {
+    /* flash path red, then show hint */
+    flashPath('#f44336', 0.9, 7);
+    play(sndWrong);
+    showToast('❌ Try again!', '#f44336');
+    setTimeout(() => { clearCanvas(); showHint(); }, 800);
+  } else {
+    /* 2nd wrong: flash red, then show correct guide green + auto-next */
+    answered = true;
+    flashPath('#f44336', 0.9, 7);
+    play(sndWrong);
+    showToast('❌ Wrong!', '#f44336');
+    setTimeout(() => {
+      hideHint();
+      clearCanvas();
+      drawHintCircle('#4CAF50');
+      showToast('💡 Correct answer!', '#FF9800');
+      setTimeout(() => { curQ++; loadQuestion(); }, 3000);
+    }, 1000);
+  }
+}
+
+/* ─── CANVAS HELPERS ─── */
+function canvas() { return document.getElementById('draw-canvas'); }
+function getCtx()  { return canvas().getContext('2d'); }
+
+function clearCanvas() {
+  const cv = canvas();
+  getCtx().clearRect(0, 0, cv.width, cv.height);
+}
+
+function flashPath(color, alpha, width) {
+  const ctx = getCtx();
+  const cv  = canvas();
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!pathPts.length) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = width;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  ctx.moveTo(pathPts[0].x, pathPts[0].y);
+  pathPts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* Draw a guide circle at the correct answer position in given color */
+function drawHintCircle(color) {
+  const q   = QUESTIONS[curQ];
+  const cv  = canvas();
+  const ctx = getCtx();
+  const cx  = q.hintCx * cv.width;
+  const cy  = q.hintCy * cv.height;
+  const r   = Math.min(cv.width, cv.height) * 0.23;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 7;
+  ctx.globalAlpha = 0.9;
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 14;
+  ctx.setLineDash(color === '#4CAF50' ? [] : [10, 6]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ─── HINT ─── */
+function showHint() {
+  const q   = QUESTIONS[curQ];
+  // Use the actual rendered image size — always reliable, even if canvas hasn't synced yet
+  const img = document.getElementById('scene-img');
+  const imgW = img.offsetWidth;
+  const imgH = img.offsetHeight;
+
+  const r  = Math.min(imgW, imgH) * 0.23;
+  const px = q.hintCx * imgW;
+  const py = q.hintCy * imgH;
+
+  const guide = document.getElementById('hint-guide');
+  guide.style.width  = (r * 2) + 'px';
+  guide.style.height = (r * 2) + 'px';
+  guide.style.left   = px + 'px';
+  guide.style.top    = py + 'px';
+  guide.classList.add('show');
+
+  /* Label: just above the circle, clamped so it never goes off the top */
+  const label = document.getElementById('hint-label');
+  label.style.left = px + 'px';
+  label.style.top  = Math.max(6, py - r - 38) + 'px';
+  label.classList.add('show');
+}
+
+function hideHint() {
+  document.getElementById('hint-guide').classList.remove('show');
+  document.getElementById('hint-label').classList.remove('show');
+}
+
+/* ─── LOAD QUESTION ─── */
+function loadQuestion() {
+  if (curQ >= QUESTIONS.length) { showEnd(); return; }
+  answered = false; attempts = 0; pathPts = [];
+
+  const q = QUESTIONS[curQ];
+  document.getElementById('q-num').textContent     = curQ + 1;
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('prog-bar').style.width  = (curQ / 8 * 100) + '%';
+  document.getElementById('question-txt').textContent = q.text;
+  speak(q.text);
+
+  const img = document.getElementById('scene-img');
+
+  function syncCanvasToImg() {
+    const cv = canvas();
+    cv.width  = img.offsetWidth  || img.naturalWidth  || 300;
+    cv.height = img.offsetHeight || img.naturalHeight || 300;
+    clearCanvas();
+  }
+
+  img.onload  = syncCanvasToImg;
+  img.onerror = () => { console.warn('Image failed:', q.img); };
+  img.src = q.img;
+
+  // If browser served from cache, onload won't fire — sync immediately
+  if (img.complete && img.naturalWidth > 0) syncCanvasToImg();
+
+  clearCanvas();
+  hideHint();
+}
+
+/* ─── TOAST ─── */
+let toastTimer = null;
+function showToast(msg, bg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.background = bg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1400);
+}
+
+/* ─── CONFETTI ─── */
+const CC = ['#FFD700','#FF6B6B','#4CAF50','#2196F3','#FF9800','#AB47BC','#26C6DA'];
+function spawnConfetti() {
+  for (let i = 0; i < 70; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      const sz = 6 + Math.random() * 9;
+      el.style.cssText = `left:${Math.random()*100}vw;top:-12px;width:${sz}px;height:${sz}px;background:${CC[Math.floor(Math.random()*CC.length)]};border-radius:${Math.random()>.4?'50%':'2px'};animation:cfFall ${1.4+Math.random()*1.8}s linear forwards;`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }, i * 22);
+  }
+}
+if (!document.querySelector('#cf-style')) {
+  const s = document.createElement('style'); s.id = 'cf-style';
+  s.textContent = `@keyframes cfFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(540deg);opacity:0}}`;
+  document.head.appendChild(s);
+}
+
+/* ─── MUTE ─── */
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+  if (muted) {
+    window.speechSynthesis?.cancel();
+    sndClaps.pause();
+  } else {
+    const txt = document.getElementById('question-txt').textContent;
+    if (txt) speak(txt);
+  }
+}
+
+/* ─── END ─── */
+function showEnd() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('end-screen').style.display  = 'flex';
+  document.getElementById('final-score').textContent   = score;
+  document.getElementById('end-stars').textContent = score >= 7 ? '⭐⭐⭐' : score >= 5 ? '⭐⭐' : '⭐';
+  playClaps();
+  spawnConfetti();
+  setTimeout(spawnConfetti, 800);
+}
+
+/* ─── RESTART ─── */
+function restartGame() {
+  clearCanvas(); hideHint(); pathPts = [];
+  document.getElementById('end-screen').style.display  = 'none';
+  document.getElementById('game-screen').style.display = 'flex';
+  curQ = 0; score = 0;
+  loadQuestion();
+}
+</script>
+</body>
+</html>
