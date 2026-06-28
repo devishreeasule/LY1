@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Bloom and Blossom · LY1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito', 'Trebuchet MS', Arial, sans-serif;
+      background: linear-gradient(135deg, #fce4ec 0%, #e8f5e9 50%, #e3f2fd 100%);
+      height: 100vh; height: 100dvh;
+      display: flex; align-items: stretch; justify-content: center;
+      overflow: hidden; user-select: none; -webkit-user-select: none;
+    }
+
+    #intro-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, #4a148c, #7b1fa2, #ab47bc);
+      display: flex; align-items: center; justify-content: center;
+      border: 5px solid #FFD700; z-index: 200; cursor: pointer;
+    }
+    #intro-logo { width: 220px; height: auto; filter: drop-shadow(0 6px 20px rgba(0,0,0,0.5)); animation: logoBounce 2s ease-in-out infinite; }
+    @keyframes logoBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+    #game-screen {
+      display: none; flex-direction: column;
+      width: 100%; max-width: 860px;
+      height: 100%; padding: 14px 14px 70px; overflow-y: auto;
+    }
+
+    .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      background: white; border-radius: 18px; padding: 10px 18px;
+      margin-bottom: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); flex-shrink: 0;
+    }
+    .hdr-score { font-size: 1.2em; font-weight: bold; color: #4CAF50; min-width: 80px; }
+    .hdr-title { font-size: clamp(0.75em,2.5vw,1em); color: #6a0dad; font-weight: bold; text-align: center; }
+    .mute-btn { width: 38px; height: 38px; border: 2px solid #ddd; border-radius: 50%; background: white; font-size: 1.1em; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
+    .progress-label { font-size: 0.9em; color: #777; white-space: nowrap; }
+    .progress-bar-wrap { flex: 1; height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg,#4CAF50,#8BC34A); transition: width 0.5s ease; }
+
+    .instruction {
+      text-align: center; font-size: clamp(0.95em,3vw,1.1em);
+      color: #333; font-weight: 700; margin-bottom: 10px;
+      padding: 0 4px; flex-shrink: 0; line-height: 1.4;
+    }
+
+    .q-card {
+      background: white; border-radius: 24px; padding: 18px 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      flex: 1; min-height: 0; width: 100%; overflow: hidden;
+    }
+
+    .round-badge {
+      font-size: 0.82em; font-weight: 800; color: #7b1fa2;
+      background: #f3e5f5; border-radius: 20px; padding: 4px 14px;
+    }
+
+    /* ── MATCH AREA ── */
+    .match-wrapper {
+      position: relative; width: 100%;
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+
+    .columns-row {
+      display: flex; align-items: stretch; gap: 0; width: 100%;
+      flex: 1; min-height: 0;
+    }
+
+    .left-col, .right-col {
+      flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: center;
+      justify-content: space-evenly;
+    }
+    .middle-gap { width: 56px; flex-shrink: 0; }
+
+    /* Flower card */
+    .match-item {
+      width: 160px;
+      border-radius: 50px;
+      border: 3px solid #e0e0e0;
+      background: #fafafa; cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      overflow: hidden; position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 6px; flex: 1; min-height: 0; max-height: 150px;
+    }
+    .match-item .flower-img-wrap {
+      flex: 1; min-height: 0; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .match-item .flower-img-wrap img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+
+    /* Dot connector */
+    .match-item::after {
+      content: ''; position: absolute;
+      width: 11px; height: 11px;
+      background: #ccc; border-radius: 50%;
+      top: 50%; transform: translateY(-50%);
+    }
+    .left-col  .match-item::after { right: -7px; }
+    .right-col .match-item::after { left: -7px; }
+
+    /* States */
+    .match-item.selected { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(255,215,0,0.5); }
+    .match-item.selected::after { background: #FFD700; }
+
+    .match-item.matched { border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.3); cursor: default; }
+    .match-item.matched::after { background: #4CAF50; }
+
+    .match-item.wrong-anim { animation: shakeItem 0.4s ease; }
+    @keyframes shakeItem { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+    .match-item.hint-anim {
+      border-color: #FF9800;
+      animation: hintPulse 1s ease-in-out infinite;
+    }
+    @keyframes hintPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,152,0,0.5)} 50%{box-shadow:0 0 0 10px rgba(255,152,0,0)} }
+
+    /* SVG lines overlay */
+    #lines-svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; overflow: visible;
+    }
+
+    .btn-restart {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg,#FF9800,#F57C00);
+      color: white; border: none; border-radius: 50px;
+      padding: 14px 36px; font-size: 1.05em; font-family: inherit;
+      font-weight: 800; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(255,152,0,0.4); z-index: 50; white-space: nowrap;
+      touch-action: manipulation; min-height: 44px;
+    }
+
+    #toast {
+      position: fixed; top: 20%; left: 50%;
+      transform: translateX(-50%) scale(0);
+      color: white; padding: 14px 28px; border-radius: 50px;
+      font-size: 1.4em; font-weight: 800;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25); z-index: 100;
+      transition: transform 0.2s, opacity 0.2s;
+      opacity: 0; pointer-events: none; white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) scale(1); opacity: 1; }
+
+    .confetti-piece {
+      position: fixed; top: -10px; pointer-events: none; z-index: 999;
+      animation: confettiFall linear forwards;
+    }
+    @keyframes confettiFall { 0%{transform:translateY(0) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+
+    #end-screen {
+      display: none; position: fixed; inset: 0;
+      background: linear-gradient(160deg,#4a148c,#7b1fa2,#ab47bc);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; z-index: 150; padding: 30px;
+    }
+    .end-trophy { font-size: 4.5em; animation: trophySpin 1.5s ease-out; }
+    @keyframes trophySpin { from{transform:rotate(-20deg) scale(0)} 60%{transform:rotate(10deg) scale(1.1)} to{transform:rotate(0deg) scale(1)} }
+    .end-title { color: #FFD700; font-size: clamp(1.5em,5vw,2.2em); font-weight: bold; text-shadow: 0 3px 10px rgba(0,0,0,0.3); text-align: center; }
+    .end-sub { color: rgba(255,255,255,0.9); font-size: 1.1em; text-align: center; }
+    .end-score-box { background: rgba(255,255,255,0.15); border-radius: 16px; padding: 12px 28px; color: white; font-size: 1.4em; font-weight: bold; }
+    .end-stars { font-size: 2.2em; letter-spacing: 4px; }
+    .btn-play-again { background: #FFD700; color: #333; border: none; border-radius: 50px; padding: 14px 36px; font-size: 1.1em; font-weight: 800; font-family: inherit; cursor: pointer; box-shadow: 0 4px 16px rgba(255,215,0,0.5); touch-action: manipulation; min-height: 44px; }
+
+    @media (max-width: 768px) {
+      #game-screen { padding: 10px 10px 66px; }
+      .q-card { padding: 10px 8px; gap: 8px; }
+      .match-item { width: 120px; max-height: 130px; }
+      .middle-gap { width: 36px; }
+      .hdr-title { display: none; }
+    }
+    @media (max-width: 480px) {
+      #game-screen { padding: 8px 8px 60px; }
+      .q-card { padding: 8px 6px; gap: 6px; }
+      .match-item { width: 100px; max-height: 110px; }
+      .middle-gap { width: 24px; }
+      .left-col, .right-col { gap: 4px; }
+      .match-item::after { width: 9px; height: 9px; }
+      .left-col  .match-item::after { right: -5px; }
+      .right-col .match-item::after { left: -5px; }
+      .hdr { padding: 8px 12px; margin-bottom: 6px; }
+      .progress-row { margin-bottom: 6px; }
+      .instruction { font-size: 0.85em; margin-bottom: 6px; }
+    }
+    @media (max-height: 640px) {
+      .match-item { max-height: 90px; }
+      .q-card { gap: 4px; padding: 6px 6px; }
+      .instruction { margin-bottom: 4px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="intro-screen" onclick="startGame()">
+  <img id="intro-logo" src="Assets/innovinelogo.png" alt="Innovine" onerror="this.style.display='none'">
+</div>
+
+<div id="toast"></div>
+
+<div id="game-screen">
+  <div class="hdr">
+    <div class="hdr-score">⭐ <span id="score-val">0</span> / 9</div>
+    <div class="hdr-title">Bloom and Blossom</div>
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
+  </div>
+  <div class="progress-row">
+    <span class="progress-label">Round <span id="round-num">1</span> / 3</span>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="prog-bar" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="instruction">Tap a flower on the left, then tap the same flower on the right!</div>
+  <div class="q-card">
+    <div class="round-badge" id="round-badge">Round 1 of 3</div>
+    <div class="match-wrapper" id="match-wrapper">
+      <div class="columns-row">
+        <div class="left-col"  id="left-col"></div>
+        <div class="middle-gap"></div>
+        <div class="right-col" id="right-col"></div>
+      </div>
+      <svg id="lines-svg"></svg>
+    </div>
+  </div>
+  <button class="btn-restart" onclick="restartGame()">🔄 &nbsp;Restart</button>
+</div>
+
+<div id="end-screen">
+  <div class="end-trophy">🏆</div>
+  <div class="end-title">You have done a great job!</div>
+  <div class="end-sub">You matched all the flowers!</div>
+  <div class="end-score-box">Score: &nbsp;<span id="final-score">0</span> / 9</div>
+  <div class="end-stars" id="end-stars"></div>
+  <button class="btn-play-again" onclick="restartGame()">▶ &nbsp;Play Again</button>
+</div>
+
+<script>
+const ALL_FLOWERS = [
+  { id:'rose',     img:'Assets/rose.png',     label:'Rose'     },
+  { id:'lotus',    img:'Assets/lotus.png',    label:'Lotus'    },
+  { id:'marigold', img:'Assets/marigold.png', label:'Marigold' },
+  { id:'hibiscus', img:'Assets/hibiscus.png', label:'Hibiscus' },
+];
+
+/* Lotus and hibiscus look similar — keep them in separate rounds */
+const PAIR_SETS = [
+  [ ALL_FLOWERS[0], ALL_FLOWERS[1], ALL_FLOWERS[2] ], /* rose, lotus, marigold     */
+  [ ALL_FLOWERS[3], ALL_FLOWERS[2], ALL_FLOWERS[1] ], /* hibiscus, marigold, lotus */
+  [ ALL_FLOWERS[3], ALL_FLOWERS[2], ALL_FLOWERS[0] ], /* hibiscus, marigold, rose  */
+];
+
+let currentPairs = PAIR_SETS[0];
+
+/* Preload all images immediately so mobile shows no lag */
+ALL_FLOWERS.forEach(p => {
+  const i = new Image();
+  i.src = p.img;
+  i.decode?.().catch(() => {});
+});
+
+const TOTAL_ROUNDS = 3;
+let currentRound = 0, score = 0;
+let selectedLeftId = null;
+let matched = new Set();
+let attempts = {};
+let busy = false;
+let muted = false;
+
+const sndWrong = new Audio('Assets/wrong.mp3');
+const sndClaps = new Audio('Assets/free_claps.mp3');
+
+function unlockAudio() {
+  [sndWrong, sndClaps].forEach(s => { s.play().catch(()=>{}); s.pause(); s.currentTime = 0; });
+  document.removeEventListener('pointerdown', unlockAudio);
+}
+document.addEventListener('pointerdown', unlockAudio);
+
+function speak(text) {
+  sndClaps.pause(); sndClaps.currentTime = 0;
+  if (!('speechSynthesis' in window) || muted) return;
+  window.speechSynthesis.cancel();
+  setTimeout(() => {
+    if (muted) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.7; u.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const v = voices.find(v => v.lang.startsWith('en') && !v.name.includes('Google'))
+           || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+  }, 150);
+}
+window.speechSynthesis.getVoices();
+window.speechSynthesis.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+
+function playClaps() {
+  if (muted) return;
+  sndClaps.currentTime = 0; sndClaps.play().catch(()=>{});
+  setTimeout(() => { sndClaps.pause(); sndClaps.currentTime = 0; }, 3000);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function isConflict(a, b) {
+  return (a.id === 'rose' && b.id === 'hibiscus') || (a.id === 'hibiscus' && b.id === 'rose');
+}
+
+function shuffleSafe(arr) {
+  let result, tries = 0;
+  do {
+    result = shuffle(arr);
+    tries++;
+  } while (tries < 30 && result.some((f, i) => i < result.length - 1 && isConflict(f, result[i + 1])));
+  return result;
+}
+
+function buildRound() {
+  matched = new Set();
+  attempts = {};
+  selectedLeftId = null;
+  busy = false;
+
+  currentPairs = PAIR_SETS[currentRound % PAIR_SETS.length];
+  const leftOrder  = currentPairs;
+  const rightOrder = shuffleSafe(currentPairs);
+
+  const leftCol  = document.getElementById('left-col');
+  const rightCol = document.getElementById('right-col');
+  const svg      = document.getElementById('lines-svg');
+
+  leftCol.innerHTML = '';
+  rightCol.innerHTML = '';
+  svg.innerHTML = '';
+
+  function makeMatchImg(pair) {
+    const img = document.createElement('img');
+    img.alt = pair.label;
+    img.decoding = 'async';
+    img.loading = 'eager';
+    img.onerror = () => { img.style.opacity = '0.2'; };
+    img.onload  = () => { img.style.opacity = '1'; };
+    img.src = pair.img;
+    if (img.complete && img.naturalWidth > 0) img.style.opacity = '1';
+    return img;
+  }
+
+  leftOrder.forEach(pair => {
+    const el = document.createElement('div');
+    el.className = 'match-item';
+    el.dataset.id = pair.id;
+    el.dataset.side = 'left';
+    const wrap = document.createElement('div');
+    wrap.className = 'flower-img-wrap';
+    wrap.appendChild(makeMatchImg(pair));
+    el.appendChild(wrap);
+    el.addEventListener('click', () => onLeftTap(pair.id));
+    leftCol.appendChild(el);
+  });
+
+  rightOrder.forEach(pair => {
+    const el = document.createElement('div');
+    el.className = 'match-item';
+    el.dataset.id = pair.id;
+    el.dataset.side = 'right';
+    const wrap = document.createElement('div');
+    wrap.className = 'flower-img-wrap';
+    wrap.appendChild(makeMatchImg(pair));
+    el.appendChild(wrap);
+    el.addEventListener('click', () => onRightTap(pair.id));
+    rightCol.appendChild(el);
+  });
+
+  document.getElementById('round-num').textContent   = currentRound + 1;
+  document.getElementById('round-badge').textContent = `Round ${currentRound + 1} of ${TOTAL_ROUNDS}`;
+  document.getElementById('prog-bar').style.width    = (currentRound / TOTAL_ROUNDS * 100) + '%';
+  document.getElementById('score-val').textContent   = score;
+
+  speak('Tap a flower on the left, then tap the same flower on the right!');
+}
+
+function getEl(side, id) {
+  return document.querySelector(`.match-item[data-side="${side}"][data-id="${id}"]`);
+}
+
+function onLeftTap(id) {
+  if (busy || matched.has(id)) return;
+  if (selectedLeftId === id) return;
+
+  document.querySelectorAll('.match-item.hint-anim').forEach(el => el.classList.remove('hint-anim'));
+
+  if (selectedLeftId) getEl('left', selectedLeftId)?.classList.remove('selected');
+  selectedLeftId = id;
+  getEl('left', id).classList.add('selected');
+}
+
+function onRightTap(id) {
+  if (busy || matched.has(id)) return;
+  if (!selectedLeftId) {
+    showToast('👆 Tap a flower first!', '#FF9800');
+    return;
+  }
+  if (selectedLeftId === id) registerMatch(id);
+  else registerMismatch(id);
+}
+
+function registerMatch(id) {
+  busy = true;
+  const leftEl  = getEl('left',  id);
+  const rightEl = getEl('right', id);
+
+  leftEl.classList.remove('selected');
+  leftEl.classList.add('matched');
+  rightEl.classList.remove('hint-anim');
+  rightEl.classList.add('matched');
+
+  if (!attempts[id] || attempts[id] === 0) score++;
+  document.getElementById('score-val').textContent = score;
+
+  drawLine(leftEl, rightEl, '#4CAF50');
+  showToast('⭐ Correct!', '#4CAF50');
+
+  matched.add(id);
+  selectedLeftId = null;
+  busy = false;
+
+  if (matched.size === currentPairs.length) onRoundComplete();
+}
+
+function registerMismatch(wrongRightId) {
+  busy = true;
+  if (!attempts[selectedLeftId]) attempts[selectedLeftId] = 0;
+  attempts[selectedLeftId]++;
+
+  const leftEl     = getEl('left',  selectedLeftId);
+  const wrongRight = getEl('right', wrongRightId);
+  const currentLeft = selectedLeftId;
+
+  leftEl.classList.add('wrong-anim');
+  wrongRight.classList.add('wrong-anim');
+  if (!muted) { sndWrong.currentTime = 0; sndWrong.play().catch(()=>{}); }
+  showToast('❌ Try again!', '#f44336');
+
+  setTimeout(() => {
+    leftEl.classList.remove('wrong-anim');
+    wrongRight.classList.remove('wrong-anim');
+
+    if (attempts[currentLeft] >= 2) {
+      getEl('right', currentLeft)?.classList.remove('hint-anim');
+      selectedLeftId = currentLeft;
+      registerMatch(currentLeft);
+      busy = false;
+    } else {
+      getEl('right', currentLeft)?.classList.add('hint-anim');
+      leftEl.classList.add('selected');
+      busy = false;
+    }
+  }, 800);
+}
+
+function redrawAllLines() {
+  const svg = document.getElementById('lines-svg');
+  if (!svg) return;
+  svg.innerHTML = '';
+  matched.forEach(id => {
+    const l = getEl('left', id);
+    const r = getEl('right', id);
+    if (l && r) drawLine(l, r, '#4CAF50');
+  });
+}
+
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(redrawAllLines, 150);
+});
+
+function drawLine(leftEl, rightEl, color) {
+  const svg    = document.getElementById('lines-svg');
+  const wrapper = document.getElementById('match-wrapper');
+  const wRect  = wrapper.getBoundingClientRect();
+  const lRect  = leftEl.getBoundingClientRect();
+  const rRect  = rightEl.getBoundingClientRect();
+
+  const x1 = lRect.right  - wRect.left;
+  const y1 = lRect.top + lRect.height / 2 - wRect.top;
+  const x2 = rRect.left   - wRect.left;
+  const y2 = rRect.top + rRect.height / 2 - wRect.top;
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  line.setAttribute('stroke', color);
+  line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-dasharray', '6,3');
+  svg.appendChild(line);
+}
+
+function onRoundComplete() {
+  window.speechSynthesis?.cancel();
+  playClaps();
+  spawnConfetti();
+  setTimeout(spawnConfetti, 600);
+
+  currentRound++;
+  if (currentRound >= TOTAL_ROUNDS) {
+    setTimeout(showEnd, 1800);
+  } else {
+    setTimeout(buildRound, 2000);
+  }
+}
+
+function startGame() {
+  document.getElementById('intro-screen').style.display = 'none';
+  const gs = document.getElementById('game-screen');
+  gs.style.display = 'flex';
+  gs.addEventListener('scroll', redrawAllLines);
+  currentRound = 0; score = 0;
+  buildRound();
+}
+
+function restartGame() {
+  window.speechSynthesis?.cancel();
+  document.getElementById('end-screen').style.display  = 'none';
+  document.getElementById('game-screen').style.display = 'flex';
+  currentRound = 0; score = 0;
+  buildRound();
+}
+
+let toastTimer;
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = color;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+function spawnConfetti() {
+  const colors = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF922B','#cc5de8','#ff6b81'];
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>0.5?'50%':'2px'};animation-duration:${1.5+Math.random()*2}s;animation-delay:${Math.random()*0.5}s;`;
+    document.body.appendChild(p);
+    p.addEventListener('animationend', () => p.remove());
+  }
+}
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+  if (muted) { window.speechSynthesis?.cancel(); sndClaps.pause(); }
+  else speak('Tap a flower on the left, then tap the same flower on the right!');
+}
+
+function showEnd() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('end-screen').style.display  = 'flex';
+  document.getElementById('final-score').textContent   = score;
+  document.getElementById('end-stars').textContent     = score >= 8 ? '⭐⭐⭐' : score >= 6 ? '⭐⭐' : '⭐';
+  document.getElementById('prog-bar').style.width      = '100%';
+  window.speechSynthesis?.cancel();
+  playClaps(); spawnConfetti();
+  setTimeout(spawnConfetti, 800);
+}
+</script>
+</body>
+</html>
